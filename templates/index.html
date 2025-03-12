@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Very Normal Chess</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        
+        .game-container {
+            text-align: center;
+        }
+        
+        .board-container {
+            margin: 20px auto;
+            width: 480px;
+        }
+        
+        .reset-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 20px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        
+        #result {
+            margin-top: 20px;
+            font-size: 18px;
+            animation: popUp 0.3s ease-out;
+        }
+
+        .rule-alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px;
+            background-color: #ffeb3b;
+            border-radius: 4px;
+            animation: fadeIn 0.5s;
+            max-width: 300px;
+        }
+
+        .rules-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 300px;
+        }
+
+        .rule-item {
+            background-color: #ffeb3b;
+            padding: 10px;
+            border-radius: 4px;
+            animation: popIn 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            transform-origin: top right;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes popIn {
+            from {
+                transform: scale(0);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes popUp {
+            0% {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            100% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .disconnect-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(5px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .disconnect-message {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+            white-space: pre-line;
+        }
+
+        .message-popup {
+            animation: popFade 0.3s ease-out;
+        }
+
+        @keyframes popFade {
+            0% {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.1);
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 10px;
+            border-radius: 50%;
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        .theme-toggle.spin {
+            animation: spin 0.5s ease-in-out;
+        }
+
+        [data-theme="dark"] {
+            background-color: #1e1e1e;
+            color: #ffffff;
+        }
+
+        [data-theme="dark"] .game-container {
+            background-color: #2d2d2d;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        [data-theme="dark"] .reset-button {
+            background-color: #3d3d3d;
+        }
+
+        [data-theme="dark"] .rule-item {
+            background-color: #3d3d3d;
+            color: #ffffff;
+        }
+
+        [data-theme="dark"] .disconnect-message {
+            background-color: #2d2d2d;
+            color: #ffffff;
+            box-shadow: 0 2px 10px rgba(255, 255, 255, 0.1);
+        }
+
+        [data-theme="dark"] .disconnect-overlay {
+            background: rgba(0, 0, 0, 0.8);
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">🌞</button>
+    <div class="disconnect-overlay" id="disconnectOverlay">
+        <div class="disconnect-message">
+            <p> </p>
+            
+
+            ⠀                Ummm.... Actually....               ⠀
+
+            ⠀                You have connection problems...               ⠀
+
+
+            ⠀                We are trying to fix your internet...               ⠀
+
+
+
+            <p> </p>
+        </div>
+    </div>
+    <div class="game-container">
+        <h1>Very Normal Chess</h1>
+        <div class="rules-container" id="rulesContainer"></div>
+        <div class="board-container">
+            <div id="board"></div>
+        </div>
+        <button class="reset-button" onclick="resetGame()">Reset Game</button>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const socket = io({
+            reconnection: true,
+            reconnectionDelay: 5000,
+            reconnectionAttempts: Infinity
+        });
+        let board = null;
+        let lastKnownPosition = 'start';
+        var imgCache = {};
+
+        socket.on('connect', function() {
+            document.getElementById('disconnectOverlay').style.display = 'none';
+            socket.emit('request_state');
+        });
+
+        socket.on('disconnect', function() {
+            document.getElementById('disconnectOverlay').style.display = 'flex';
+        });
+
+        socket.on('reconnect_attempt', function() {
+            console.log('Attempting to reconnect...');
+        });
+
+        socket.on('game_state', function(data) {
+            if (data.fen) {
+                lastKnownPosition = data.fen;
+                board.position(data.fen);
+            }
+        });
+
+        function cacheImages() {
+            var pieces = ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP'];
+            pieces.forEach(function(piece) {
+                var img = new Image();
+                img.onload = function() {
+                    imgCache[piece] = getBase64Image(img);
+                }
+                img.src = 'https://raw.githubusercontent.com/lichess-org/lila/refs/heads/master/public/piece/cburnett/' + piece + '.svg';
+            });
+        }
+
+        function getBase64Image(img) {
+            var canvas = document.createElement("canvas");
+            canvas.width = img.width;
+            canvas.height = img.height;
+            var ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0);
+            var dataURL = canvas.toDataURL("image/png");
+            return dataURL;     
+        }
+
+        function buildPieceImgSrc(piece) {
+            if(imgCache[piece]) return imgCache[piece];
+            cacheImages();
+            if(imgCache[piece]) return imgCache[piece];
+            return 'https://raw.githubusercontent.com/lichess-org/lila/refs/heads/master/public/piece/cburnett/' + piece + '.svg';
+        }
+        
+        function initBoard() {
+            const config = {
+                draggable: true,
+                position: lastKnownPosition,
+                onDrop: handleMove,
+                pieceTheme: buildPieceImgSrc
+            };
+            board = Chessboard('board', config);
+        }
+
+        function handleMove(source, target) {
+            const move = source + target;
+            socket.emit('move', { move: move });
+            return true;
+        }
+
+        socket.on('game_update', function(data) {
+            if (data.fen) {
+                lastKnownPosition = data.fen;
+            }
+            if (data.error) {
+                updateResult('Error: ' + data.error);
+                board.position(data.fen);
+            } else if (data.result) {
+                updateResult(data.result);
+                board.position(data.fen);
+            } else if (data.rule_change) {
+                showRuleAlert(data.rule_change);
+                if (data.chatgpt_move) {
+                    const move = data.chatgpt_move;
+                    const source = move.substring(0, 2);
+                    const target = move.substring(2, 4);
+                    
+                    updateResult('ChatGPT changed rules and moved: ' + data.chatgpt_move);
+                    
+                    setTimeout(() => {
+                        const oldPos = board.position();
+                        const piece = oldPos[source];
+                        if (piece) {
+                            delete oldPos[source];
+                            oldPos[target] = piece;
+                            board.position(oldPos);
+                        }
+                        setTimeout(() => board.position(data.fen), 500);
+                    }, 500);
+                } else {
+                    board.position(data.fen);
+                }
+            } else if (data.chatgpt_move && data.fen) {
+                const move = data.chatgpt_move;
+                const source = move.substring(0, 2);
+                const target = move.substring(2, 4);
+                
+                updateResult('ChatGPT moved: ' + data.chatgpt_move);
+                
+                setTimeout(() => {
+                    const oldPos = board.position();
+                    const piece = oldPos[source];
+                    if (piece) {
+                        delete oldPos[source];
+                        oldPos[target] = piece;
+                        board.position(oldPos);
+                    }
+                    setTimeout(() => board.position(data.fen), 500);
+                }, 500);
+            } else if (data.fen) {
+                board.position(data.fen);
+            }
+        });
+
+        function showRuleAlert(message) {
+            const container = document.getElementById('rulesContainer');
+            const ruleElement = document.createElement('div');
+            ruleElement.className = 'rule-item';
+            ruleElement.textContent = "Rule: " + message;
+            container.appendChild(ruleElement);
+        }
+
+        function updateResult(text) {
+            const result = document.getElementById('result');
+            result.className = 'message-popup';
+            result.textContent = text;
+            result.style.animation = 'none';
+            result.offsetHeight;
+            result.style.animation = null;
+        }
+
+        function resetGame() {
+            socket.emit('reset');
+            board.start();
+        }
+
+        function toggleTheme() {
+            const themeToggle = document.querySelector('.theme-toggle');
+            const body = document.body;
+            const currentTheme = body.getAttribute('data-theme');
+            
+            themeToggle.classList.add('spin');
+            
+            setTimeout(() => {
+                if (currentTheme === 'dark') {
+                    body.removeAttribute('data-theme');
+                    themeToggle.textContent = '🌞';
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    body.setAttribute('data-theme', 'dark');
+                    themeToggle.textContent = '🌜';
+                    localStorage.setItem('theme', 'dark');
+                }
+            }, 250);
+            
+            setTimeout(() => {
+                themeToggle.classList.remove('spin');
+            }, 500);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            const themeToggle = document.querySelector('.theme-toggle');
+            
+            if (savedTheme === 'dark') {
+                document.body.setAttribute('data-theme', 'dark');
+                themeToggle.textContent = '🌜';
+            }
+        });
+
+        $(document).ready(function() {
+            cacheImages();
+            initBoard();
+        });
+    </script>
+</body>
+</html>
