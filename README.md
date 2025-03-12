@@ -6,7 +6,7 @@ In this "game" you will need to fight ChatGPT in chess.
 
 You will need to use Python.
 
-Is it installed on your computer?
+Its installed on your computer, righhhhtttt?
 
 ### Windows:
 
