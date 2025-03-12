@@ -1,6 +1,6 @@
 """
 Very normal chess....
-Inspired by DougDoug Napaleon chess AI
+Inspired by DougDoug Napoleon chess AI
 """
 
 from flask import Flask, render_template, send_from_directory
