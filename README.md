@@ -23,4 +23,4 @@ And run the code: `python3 main.py`
 # Inspired by DougDoug Napoleon AI
 ### Videos:
 - [I created the ultimate Chess Ai (it can cheat)](https://www.youtube.com/watch?v=l_wOsSda3Us)
-- [ChatGPT Napoleon vs. ChatGPT King George at No-Rules Chess](https://www.youtube.com/watch?v=Z0e4UIo5dgI&t=114s)
+- [I made 2 Ai's play chess but they just fell in love](https://www.youtube.com/watch?v=Z0e4UIo5dgI&t=114s)
