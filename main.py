@@ -11,7 +11,7 @@ import g4f
 app = Flask(__name__)
 socketio = SocketIO(app)
 
-DBG = False
+DBG = True
 
 board = chess.Board()
 custom_rules = {
@@ -156,19 +156,19 @@ def get_game_status(board):
     elif board.is_check():
         return {'status': 'check'}
     
-    white_knights = len([square for square in chess.SQUARES 
-                        if board.piece_at(square) and 
-                        board.piece_at(square).piece_type == chess.KNIGHT and 
-                        board.piece_at(square).color == chess.WHITE])
-    black_knights = len([square for square in chess.SQUARES 
-                        if board.piece_at(square) and 
-                        board.piece_at(square).piece_type == chess.KNIGHT and 
-                        board.piece_at(square).color == chess.BLACK])
+    # white_knights = len([square for square in chess.SQUARES 
+    #                     if board.piece_at(square) and 
+    #                     board.piece_at(square).piece_type == chess.KNIGHT and 
+    #                     board.piece_at(square).color == chess.WHITE])
+    # black_knights = len([square for square in chess.SQUARES 
+    #                     if board.piece_at(square) and 
+    #                     board.piece_at(square).piece_type == chess.KNIGHT and 
+    #                     board.piece_at(square).color == chess.BLACK])
     
-    if white_knights == 0:
-        return {'status': 'no_knights', 'winner': 'Black'}
-    elif black_knights == 0:
-        return {'status': 'no_knights', 'winner': 'White'}
+    # if white_knights == 0:
+    #     return {'status': 'no_knights', 'winner': 'Black'}
+    # elif black_knights == 0:
+    #     return {'status': 'no_knights', 'winner': 'White'}
     
     return {'status': 'ongoing'}
 
