@@ -189,8 +189,9 @@ def handle_move(data):
 
     try:
         clean_move = move_uci.strip().lower()
-        if len(clean_move) == 5 and clean_move[4] in ['q', 'r', 'b', 'n']:
-            promotion = clean_move[4]
+        if (len(clean_move) == 5 and clean_move[4] in ['q', 'r', 'b', 'n'] and
+            board.piece_at(chess.parse_square(clean_move[:2])) and
+            board.piece_at(chess.parse_square(clean_move[:2])).piece_type == chess.PAWN):
             move = chess.Move.from_uci(clean_move)
         else:
             clean_move = clean_move[:4]

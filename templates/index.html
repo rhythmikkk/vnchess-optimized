@@ -351,7 +351,10 @@
             const move = source + target;
             const sourceRow = source.charAt(1);
             const targetRow = target.charAt(1);
-            if ((sourceRow === '7' && targetRow === '8') || (sourceRow === '2' && targetRow === '1')) {
+            const piece = board.position()[source];
+            
+            if (piece && piece.toLowerCase() === 'p' && 
+                ((sourceRow === '7' && targetRow === '8') || (sourceRow === '2' && targetRow === '1'))) {
                 const dialog = document.getElementById('promotionDialog');
                 dialog.style.display = 'block';
                 window.pendingMove = { source, target };
