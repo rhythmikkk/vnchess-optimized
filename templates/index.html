@@ -197,6 +197,49 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        .check-alert {
+            color: #ff4444;
+            font-weight: bold;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0.5; }
+        }
+
+        .promotion-dialog {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 1001;
+        }
+
+        .promotion-option {
+            margin: 5px;
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .promotion-option:hover {
+            background-color: #f0f0f0;
+        }
+
+        [data-theme="dark"] .promotion-dialog {
+            background-color: #2d2d2d;
+            color: white;
+        }
+
+        [data-theme="dark"] .promotion-option:hover {
+            background-color: #3d3d3d;
+        }
     </style>
 </head>
 <body>
@@ -226,6 +269,14 @@
         </div>
         <button class="reset-button" onclick="resetGame()">Reset Game</button>
         <div id="result"></div>
+    </div>
+
+    <div class="promotion-dialog" id="promotionDialog">
+        <h3>Choose promotion piece:</h3>
+        <div class="promotion-option" onclick="handlePromotion('q')">Queen</div>
+        <div class="promotion-option" onclick="handlePromotion('r')">Rook</div>
+        <div class="promotion-option" onclick="handlePromotion('b')">Bishop</div>
+        <div class="promotion-option" onclick="handlePromotion('n')">Knight</div>
     </div>
 
     <script>
@@ -298,8 +349,26 @@
 
         function handleMove(source, target) {
             const move = source + target;
+            const sourceRow = source.charAt(1);
+            const targetRow = target.charAt(1);
+            if ((sourceRow === '7' && targetRow === '8') || (sourceRow === '2' && targetRow === '1')) {
+                const dialog = document.getElementById('promotionDialog');
+                dialog.style.display = 'block';
+                window.pendingMove = { source, target };
+                return false;
+            }
             socket.emit('move', { move: move });
             return true;
+        }
+
+        function handlePromotion(piece) {
+            const dialog = document.getElementById('promotionDialog');
+            dialog.style.display = 'none';
+            if (window.pendingMove) {
+                const move = window.pendingMove.source + window.pendingMove.target + piece;
+                socket.emit('move', { move: move });
+                window.pendingMove = null;
+            }
         }
 
         socket.on('game_update', function(data) {
@@ -311,6 +380,10 @@
                 board.position(data.fen);
             } else if (data.result) {
                 updateResult(data.result);
+                board.position(data.fen);
+                board.draggable = false;
+            } else if (data.check) {
+                updateResult('Check!', true);
                 board.position(data.fen);
             } else if (data.rule_change) {
                 showRuleAlert(data.rule_change);
@@ -364,9 +437,9 @@
             container.appendChild(ruleElement);
         }
 
-        function updateResult(text) {
+        function updateResult(text, isCheck = false) {
             const result = document.getElementById('result');
-            result.className = 'message-popup';
+            result.className = isCheck ? 'message-popup check-alert' : 'message-popup';
             result.textContent = text;
             result.style.animation = 'none';
             result.offsetHeight;
