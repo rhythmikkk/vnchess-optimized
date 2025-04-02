@@ -35,8 +35,18 @@
             color: white;
             border: none;
             border-radius: 4px;
+            transition: background-color 0.3s;
         }
-        
+
+        .reset-button:hover {
+            background-color: #45a049;
+        }
+
+        .reset-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
         #result {
             margin-top: 20px;
             font-size: 18px;
@@ -175,7 +185,11 @@
         }
 
         [data-theme="dark"] .reset-button {
-            background-color: #3d3d3d;
+            background-color: #2196F3;
+        }
+
+        [data-theme="dark"] .reset-button:hover {
+            background-color: #1976D2;
         }
 
         [data-theme="dark"] .rule-item {
@@ -219,13 +233,23 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.2);
             display: none;
             z-index: 1001;
+            text-align: center;
+        }
+
+        .promotion-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
         }
 
         .promotion-option {
             margin: 5px;
-            padding: 10px;
+            padding: 15px;
             cursor: pointer;
             border-radius: 4px;
+            border: 1px solid #ddd;
+            transition: background-color 0.2s;
         }
 
         .promotion-option:hover {
@@ -235,6 +259,11 @@
         [data-theme="dark"] .promotion-dialog {
             background-color: #2d2d2d;
             color: white;
+            border: 1px solid #444;
+        }
+
+        [data-theme="dark"] .promotion-option {
+            border-color: #444;
         }
 
         [data-theme="dark"] .promotion-option:hover {
@@ -267,16 +296,18 @@
         <div class="board-container">
             <div id="board"></div>
         </div>
-        <button class="reset-button" onclick="resetGame()">Reset Game</button>
+        <button class="reset-button" id="resetButton" onclick="resetGame()">Reset Game</button>
         <div id="result"></div>
     </div>
 
     <div class="promotion-dialog" id="promotionDialog">
         <h3>Choose promotion piece:</h3>
-        <div class="promotion-option" onclick="handlePromotion('q')">Queen</div>
-        <div class="promotion-option" onclick="handlePromotion('r')">Rook</div>
-        <div class="promotion-option" onclick="handlePromotion('b')">Bishop</div>
-        <div class="promotion-option" onclick="handlePromotion('n')">Knight</div>
+        <div class="promotion-options">
+            <div class="promotion-option" onclick="handlePromotion('q')">Queen ♕</div>
+            <div class="promotion-option" onclick="handlePromotion('r')">Rook ♖</div>
+            <div class="promotion-option" onclick="handlePromotion('b')">Bishop ♗</div>
+            <div class="promotion-option" onclick="handlePromotion('n')">Knight ♘</div>
+        </div>
     </div>
 
     <script>
@@ -348,75 +379,96 @@
         }
 
         function handleMove(source, target) {
-            const move = source + target;
-            const sourceRow = source.charAt(1);
-            const targetRow = target.charAt(1);
             const piece = board.position()[source];
+            const sourceRow = parseInt(source[1]);
+            const targetRow = parseInt(target[1]);
             
+            // Check for pawn promotion
             if (piece && piece.toLowerCase() === 'p' && 
-                ((sourceRow === '7' && targetRow === '8') || (sourceRow === '2' && targetRow === '1'))) {
-                const dialog = document.getElementById('promotionDialog');
-                dialog.style.display = 'block';
-                window.pendingMove = { source, target };
+                ((piece === 'P' && targetRow === 8) || (piece === 'p' && targetRow === 1))) {
+                showPromotionDialog(source, target);
                 return false;
             }
+            
+            const move = source + target;
             socket.emit('move', { move: move });
             return true;
+        }
+
+        function showPromotionDialog(source, target) {
+            const dialog = document.getElementById('promotionDialog');
+            dialog.style.display = 'block';
+            window.pendingMove = { source, target };
         }
 
         function handlePromotion(piece) {
             const dialog = document.getElementById('promotionDialog');
             dialog.style.display = 'none';
+            
             if (window.pendingMove) {
-                const move = window.pendingMove.source + window.pendingMove.target + piece;
+                const { source, target } = window.pendingMove;
+                const move = source + target + piece;
                 socket.emit('move', { move: move });
                 window.pendingMove = null;
             }
         }
 
+        // Add click outside to cancel promotion
+        document.addEventListener('click', function(event) {
+            const dialog = document.getElementById('promotionDialog');
+            if (event.target === dialog) {
+                dialog.style.display = 'none';
+                window.pendingMove = null;
+                board.position(lastKnownPosition);
+            }
+        });
+
         socket.on('game_update', function(data) {
+            if (data.reset) {
+                // Reset the board
+                board.position(data.fen);
+                // Reset game state
+                board.draggable = true;
+                // Clear any displayed messages
+                updateResult('');
+                // Clear any pending moves
+                window.pendingMove = null;
+                // Hide promotion dialog if open
+                document.getElementById('promotionDialog').style.display = 'none';
+                // Update last known position
+                lastKnownPosition = data.fen;
+                return;
+            }
+            
             if (data.fen) {
                 lastKnownPosition = data.fen;
             }
+            
             if (data.error) {
                 updateResult('Error: ' + data.error);
                 board.position(data.fen);
-            } else if (data.result) {
+                return;
+            }
+            
+            if (data.result) {
                 updateResult(data.result);
                 board.position(data.fen);
                 board.draggable = false;
-            } else if (data.check) {
+                return;
+            }
+            
+            if (data.check) {
                 updateResult('Check!', true);
-                board.position(data.fen);
-            } else if (data.rule_change) {
-                showRuleAlert(data.rule_change);
-                if (data.chatgpt_move) {
-                    const move = data.chatgpt_move;
-                    const source = move.substring(0, 2);
-                    const target = move.substring(2, 4);
-                    
-                    updateResult('ChatGPT changed rules and moved: ' + data.chatgpt_move);
-                    
-                    setTimeout(() => {
-                        const oldPos = board.position();
-                        const piece = oldPos[source];
-                        if (piece) {
-                            delete oldPos[source];
-                            oldPos[target] = piece;
-                            board.position(oldPos);
-                        }
-                        setTimeout(() => board.position(data.fen), 500);
-                    }, 500);
-                } else {
-                    board.position(data.fen);
-                }
-            } else if (data.chatgpt_move && data.fen) {
+            }
+            
+            if (data.chatgpt_move) {
                 const move = data.chatgpt_move;
                 const source = move.substring(0, 2);
-                const target = move.substring(2, 4);
+                const target = move.substring(2);
                 
-                updateResult('ChatGPT moved: ' + data.chatgpt_move);
+                updateResult('ChatGPT moved: ' + move);
                 
+                // Animate the move
                 setTimeout(() => {
                     const oldPos = board.position();
                     const piece = oldPos[source];
@@ -454,6 +506,11 @@
             board.start();
         }
 
+        // Add reset button event listener
+        document.getElementById('resetButton').addEventListener('click', function() {
+            socket.emit('reset');
+        });
+
         function toggleTheme() {
             const themeToggle = document.querySelector('.theme-toggle');
             const body = document.body;
@@ -487,6 +544,14 @@
                 themeToggle.textContent = '🌜';
             }
         });
+
+        function initializeBoard() {
+            // Enable the reset button
+            const resetButton = document.getElementById('resetButton');
+            if (resetButton) {
+                resetButton.disabled = false;
+            }
+        }
 
         $(document).ready(function() {
             cacheImages();
